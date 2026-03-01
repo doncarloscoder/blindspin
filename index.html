@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blindspin — Spin. Listen. Guess.</title>
+  <meta name="description" content="A music guessing game for people who love music. Spin the record. Hear the song. Guess the year." />
+  <meta property="og:title" content="Blindspin" />
+  <meta property="og:description" content="Spin. Listen. Guess." />
+  <meta property="og:url" content="https://blindspin.app" />
+  <meta name="theme-color" content="#0e0a04" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --gold:   #c8a050;
+      --gold2:  rgba(200,160,80,0.6);
+      --gold3:  rgba(200,160,80,0.25);
+      --gold4:  rgba(200,160,80,0.08);
+      --bg:     #0e0a04;
+      --bg2:    #151008;
+      --bg3:    #1e1608;
+      --text:   rgba(220,190,130,0.85);
+      --muted:  rgba(200,160,80,0.35);
+      --faint:  rgba(200,160,80,0.15);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'IM Fell English', Georgia, serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Grain overlay ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 100;
+      opacity: 0.55;
+    }
+
+    /* ── Typography ── */
+    .display {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-weight: 400;
+    }
+    .display-bold {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-weight: 700;
+    }
+
+    /* ── Animations ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; }
+      50%       { opacity: 1; }
+    }
+    @keyframes scanline {
+      0%   { top: 0; opacity: 0; }
+      10%  { opacity: 1; }
+      90%  { opacity: 1; }
+      100% { top: 100%; opacity: 0; }
+    }
+    @keyframes glow {
+      0%, 100% { filter: drop-shadow(0 0 12px rgba(200,160,80,0.2)); }
+      50%       { filter: drop-shadow(0 0 28px rgba(200,160,80,0.45)); }
+    }
+
+    .fade-up { animation: fadeUp 0.9s ease both; }
+    .delay-1 { animation-delay: 0.15s; }
+    .delay-2 { animation-delay: 0.30s; }
+    .delay-3 { animation-delay: 0.50s; }
+    .delay-4 { animation-delay: 0.70s; }
+    .delay-5 { animation-delay: 0.90s; }
+
+    /* ── Layout ── */
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 0 28px;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 80px 28px 60px;
+      position: relative;
+    }
+
+    .hero-glow {
+      position: absolute;
+      top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 700px;
+      height: 500px;
+      background: radial-gradient(ellipse at top, rgba(180,120,40,0.08) 0%, transparent 65%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      font-size: 10px;
+      letter-spacing: 6px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+
+    .hero-title {
+      font-size: clamp(56px, 12vw, 100px);
+      letter-spacing: 10px;
+      text-transform: uppercase;
+      color: var(--gold);
+      text-shadow: 0 0 60px rgba(200,140,60,0.2);
+      line-height: 1;
+      margin-bottom: 24px;
+    }
+
+    .hero-tagline {
+      font-size: clamp(16px, 3vw, 22px);
+      font-style: italic;
+      color: var(--text);
+      letter-spacing: 1px;
+      margin-bottom: 52px;
+      opacity: 0.7;
+    }
+
+    /* ── LP illustration ── */
+    .lp-wrap {
+      margin: 0 auto 52px;
+      position: relative;
+      width: 220px;
+      height: 220px;
+    }
+
+    .lp-record {
+      width: 220px;
+      height: 220px;
+      animation: spin 4s linear infinite;
+      animation-play-state: paused;
+      animation: glow 3s ease-in-out infinite;
+    }
+
+    .lp-wrap:hover .lp-record {
+      animation: spin 3s linear infinite;
+    }
+
+    /* ── CTA ── */
+    .cta-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .cta-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: transparent;
+      border: 1px solid var(--gold3);
+      color: var(--gold2);
+      padding: 14px 40px;
+      font-size: 11px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      text-decoration: none;
+      font-family: 'IM Fell English', Georgia, serif;
+      cursor: pointer;
+      transition: all 0.3s;
+      border-radius: 2px;
+    }
+    .cta-btn:hover {
+      background: var(--gold4);
+      border-color: var(--gold2);
+      color: var(--gold);
+    }
+    .cta-btn.coming-soon {
+      opacity: 0.4;
+      cursor: default;
+      pointer-events: none;
+    }
+
+    .cta-note {
+      font-size: 9px;
+      letter-spacing: 3px;
+      color: var(--faint);
+      text-transform: uppercase;
+    }
+
+    /* ── Divider ── */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin: 80px 0;
+      opacity: 0.25;
+    }
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--gold);
+    }
+    .divider-mark {
+      font-size: 12px;
+      color: var(--gold);
+      letter-spacing: 4px;
+    }
+
+    /* ── How it works ── */
+    .section {
+      padding: 80px 0;
+    }
+
+    .section-label {
+      font-size: 9px;
+      letter-spacing: 5px;
+      color: var(--muted);
+      text-transform: uppercase;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-size: clamp(28px, 5vw, 42px);
+      color: var(--gold);
+      text-align: center;
+      margin-bottom: 56px;
+      font-style: italic;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 40px;
+    }
+
+    .step {
+      text-align: center;
+      padding: 32px 20px;
+      border: 1px solid var(--faint);
+      border-radius: 4px;
+      background: rgba(200,160,80,0.02);
+      transition: border-color 0.3s, background 0.3s;
+    }
+    .step:hover {
+      border-color: var(--gold3);
+      background: var(--gold4);
+    }
+
+    .step-number {
+      font-size: 9px;
+      letter-spacing: 4px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .step-icon {
+      font-size: 36px;
+      margin-bottom: 16px;
+      display: block;
+      animation: glow 3s ease-in-out infinite;
+    }
+
+    .step-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 18px;
+      color: var(--gold);
+      margin-bottom: 10px;
+    }
+
+    .step-body {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    /* ── Two phones ── */
+    .phones {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px;
+      border: 1px solid var(--faint);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .phone-card {
+      padding: 40px 28px;
+      background: rgba(200,160,80,0.02);
+      text-align: center;
+      transition: background 0.3s;
+    }
+    .phone-card:hover { background: var(--gold4); }
+    .phone-card + .phone-card {
+      border-left: 1px solid var(--faint);
+    }
+
+    .phone-icon {
+      font-size: 42px;
+      display: block;
+      margin-bottom: 20px;
+    }
+
+    .phone-role {
+      font-size: 8px;
+      letter-spacing: 5px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .phone-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 22px;
+      color: var(--gold);
+      margin-bottom: 12px;
+    }
+
+    .phone-desc {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    /* ── Coming soon banner ── */
+    .coming-soon-section {
+      text-align: center;
+      padding: 80px 0;
+    }
+
+    .coming-soon-badge {
+      display: inline-block;
+      border: 1px solid var(--gold3);
+      color: var(--muted);
+      font-size: 9px;
+      letter-spacing: 5px;
+      text-transform: uppercase;
+      padding: 8px 24px;
+      border-radius: 2px;
+      margin-bottom: 24px;
+    }
+
+    .coming-soon-text {
+      font-size: clamp(22px, 4vw, 34px);
+      font-style: italic;
+      color: var(--text);
+      margin-bottom: 40px;
+      opacity: 0.6;
+      line-height: 1.4;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--faint);
+      padding: 40px 28px;
+      text-align: center;
+    }
+
+    .footer-logo {
+      font-size: 18px;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .footer-copy {
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: var(--faint);
+      text-transform: uppercase;
+    }
+
+    /* ── LP SVG ── */
+    #lp-svg {
+      width: 220px;
+      height: 220px;
+    }
+    #lp-svg.spinning {
+      animation: spin 3s linear infinite;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 560px) {
+      .phones {
+        grid-template-columns: 1fr;
+      }
+      .phone-card + .phone-card {
+        border-left: none;
+        border-top: 1px solid var(--faint);
+      }
+      .steps {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── HERO ── -->
+  <section class="hero">
+    <div class="hero-glow"></div>
+
+    <p class="eyebrow fade-up">◆ &nbsp; A Music Guessing Game &nbsp; ◆</p>
+
+    <h1 class="hero-title display fade-up delay-1">Blindspin</h1>
+
+    <p class="hero-tagline fade-up delay-2">
+      Spin the record. Hear the song. Guess the year.
+    </p>
+
+    <!-- LP illustration -->
+    <div class="lp-wrap fade-up delay-3" id="lp-wrap">
+      <svg id="lp-svg" viewBox="-110 -110 220 220" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="vSheen" cx="40%" cy="30%">
+            <stop offset="0%" stop-color="rgba(255,255,255,0.07)" />
+            <stop offset="100%" stop-color="rgba(0,0,0,0.3)" />
+          </radialGradient>
+          <radialGradient id="lbg" cx="50%" cy="35%">
+            <stop offset="0%" stop-color="#f0e8d0" />
+            <stop offset="100%" stop-color="#ddd0b0" />
+          </radialGradient>
+        </defs>
+        <!-- Outer edge -->
+        <circle cx="0" cy="0" r="108" fill="#0d0d0d"/>
+        <!-- Vinyl -->
+        <circle cx="0" cy="0" r="106" fill="#111"/>
+        <!-- Grooves -->
+        <g id="grooves"></g>
+        <!-- Sheen -->
+        <circle cx="0" cy="0" r="106" fill="url(#vSheen)"/>
+        <!-- Label -->
+        <circle cx="0" cy="0" r="34" fill="url(#lbg)"/>
+        <!-- Label ring -->
+        <circle cx="0" cy="0" r="30" fill="none" stroke="rgba(180,140,60,0.3)" stroke-width="0.5"/>
+        <!-- Label text -->
+        <text x="0" y="-10" text-anchor="middle" fill="rgba(100,60,20,0.7)"
+          style="font-size:6px;letter-spacing:2px;font-family:Georgia,serif;">BLINDSPIN</text>
+        <text x="0" y="0" text-anchor="middle" fill="rgba(120,80,30,0.4)"
+          style="font-size:4px;letter-spacing:1px;font-family:Georgia,serif;">℗ STEREO</text>
+        <text x="0" y="10" text-anchor="middle" fill="rgba(120,80,30,0.3)"
+          style="font-size:3.5px;letter-spacing:0.5px;font-family:Georgia,serif;font-style:italic">Coming Soon</text>
+        <!-- Spindle -->
+        <circle cx="0" cy="0" r="3" fill="#0a0a0a"/>
+      </svg>
+    </div>
+
+    <div class="cta-wrap fade-up delay-4">
+      <a href="#" class="cta-btn coming-soon">
+        ⬇ &nbsp; Download on the App Store
+      </a>
+      <p class="cta-note">iOS · Coming soon</p>
+    </div>
+  </section>
+
+  <!-- ── HOW IT WORKS ── -->
+  <section class="section">
+    <div class="container">
+      <div class="divider"><span class="divider-mark">◆ ◆ ◆</span></div>
+
+      <p class="section-label">How it works</p>
+      <h2 class="section-title display-bold">Simple as vinyl</h2>
+
+      <div class="steps">
+        <div class="step fade-up">
+          <p class="step-number">01</p>
+          <span class="step-icon">🎵</span>
+          <h3 class="step-title">Spin</h3>
+          <p class="step-body">One player spins the virtual record. It lands on a song — nobody knows which one yet.</p>
+        </div>
+        <div class="step fade-up delay-1">
+          <p class="step-number">02</p>
+          <span class="step-icon">📷</span>
+          <h3 class="step-title">Scan</h3>
+          <p class="step-body">The other players scan the QR code on the label. The music starts playing — no title, no artist.</p>
+        </div>
+        <div class="step fade-up delay-2">
+          <p class="step-number">03</p>
+          <span class="step-icon">🎧</span>
+          <h3 class="step-title">Listen</h3>
+          <p class="step-body">Everyone listens. Recognise the melody? The singer? Place it on your timeline.</p>
+        </div>
+        <div class="step fade-up delay-3">
+          <p class="step-number">04</p>
+          <span class="step-icon">✦</span>
+          <h3 class="step-title">Reveal</h3>
+          <p class="step-body">Flip the card. See the year, the title, the artist — and who wrote it. Score your points.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── TWO PHONES ── -->
+  <section class="section">
+    <div class="container">
+      <div class="divider"><span class="divider-mark">◆ ◆ ◆</span></div>
+
+      <p class="section-label">Two roles</p>
+      <h2 class="section-title display-bold">One table, two phones</h2>
+
+      <div class="phones">
+        <div class="phone-card">
+          <span class="phone-icon">💿</span>
+          <p class="phone-role">The DJ</p>
+          <h3 class="phone-title">Generator</h3>
+          <p class="phone-desc">Spin the turntable. A random song is selected and its QR code appears on the record label. You're as blind as everyone else.</p>
+        </div>
+        <div class="phone-card">
+          <span class="phone-icon">📷</span>
+          <p class="phone-role">The Listener</p>
+          <h3 class="phone-title">Player</h3>
+          <p class="phone-desc">Point your camera at the label. The music plays instantly — no hints, no title, just sound. Trust your ears.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── COMING SOON ── -->
+  <section class="coming-soon-section">
+    <div class="container">
+      <div class="divider"><span class="divider-mark">◆ ◆ ◆</span></div>
+      <span class="coming-soon-badge">Coming soon for iOS</span>
+      <p class="coming-soon-text display">
+        "The music game for people<br>who actually love music."
+      </p>
+      <a href="#" class="cta-btn coming-soon">
+        ⬇ &nbsp; Download on the App Store
+      </a>
+    </div>
+  </section>
+
+  <!-- ── FOOTER ── -->
+  <footer>
+    <p class="footer-logo display">Blindspin</p>
+    <p class="footer-copy">© 2026 Blindspin &nbsp;·&nbsp; blindspin.app</p>
+  </footer>
+
+  <script>
+    // Draw vinyl grooves
+    const grooves = document.getElementById('grooves');
+    for (let r = 38; r < 103; r += 3.2) {
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c.setAttribute('cx', '0');
+      c.setAttribute('cy', '0');
+      c.setAttribute('r', r);
+      c.setAttribute('fill', 'none');
+      c.setAttribute('stroke', 'rgba(0,0,0,0.2)');
+      c.setAttribute('stroke-width', '0.5');
+      grooves.appendChild(c);
+    }
+
+    // Spin on hover
+    const lp = document.getElementById('lp-svg');
+    const wrap = document.getElementById('lp-wrap');
+    wrap.addEventListener('mouseenter', () => lp.classList.add('spinning'));
+    wrap.addEventListener('mouseleave', () => lp.classList.remove('spinning'));
+
+    // Intersection observer for fade-up elements
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.style.opacity = '1';
+          e.target.style.transform = 'translateY(0)';
+        }
+      });
+    }, { threshold: 0.15 });
+
+    document.querySelectorAll('.step, .phone-card').forEach(el => {
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(20px)';
+      el.style.transition = 'opacity 0.7s ease, transform 0.7s ease';
+      observer.observe(el);
+    });
+  </script>
+</body>
+</html>
